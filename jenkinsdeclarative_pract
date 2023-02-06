@@ -1,0 +1,62 @@
+pipeline{
+agent any
+tools{
+    maven "maven3.8.7"
+}
+triggers{
+    pollSCM('* * * * *')
+    //pipelineTriggers([githubPush()])
+}
+options{
+    timestamps()
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '1'))
+}
+stages{
+  stage('checkout code'){
+      steps{
+          git credentialsId: '353ab503-3efb-4dc4-a295-5652a9e2ec83', url: 'https://github.com/mohankec98/maven-web-application.git'
+      }
+  } 
+  
+  stage('build'){
+      steps{
+        sh "mvn clean package"  
+      }
+      
+  }
+  
+  stage('exicutesonarcube report'){
+      steps{
+          sh "mvn clean sonar:sonar"
+      }
+  }
+  
+  stage('uploadartifactinto nexus'){
+      steps{
+          sh "mvn deploy"
+      }
+  }
+  
+  stage('deployinto tomcat'){
+      steps{
+          sshagent(['84dcf748-2179-4dba-9734-1dabcf3b6221']) {
+         sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.231.177.69:/opt/apache-tomcat-9.0.71/webapps/"
+      }
+      
+  }
+}
+}
+
+post{
+    success{
+        emailext body: '''build is over -- success!!
+
+Regards
+mohan
+devops engineer
+9553691625''', subject: 'build is over!!', to: 'mohankec98@gmail.com'
+    }
+    
+}
+}
+   
